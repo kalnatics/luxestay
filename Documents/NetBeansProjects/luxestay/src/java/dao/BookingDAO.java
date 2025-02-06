@@ -3,12 +3,12 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package conn;
+package dao;
 
 /**
  *
  * @author kallisya
  */
-public class connection {
+public class BookingDAO {
     
 }

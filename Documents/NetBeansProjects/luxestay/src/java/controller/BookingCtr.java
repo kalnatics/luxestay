@@ -18,7 +18,7 @@ import javax.servlet.http.HttpServletResponse;
  * @author kallisya
  */
 @WebServlet(name = "ReservationCtr", urlPatterns = {"/ReservationCtr"})
-public class ReservationCtr extends HttpServlet {
+public class BookingCtr extends HttpServlet {
 
     /**
      * Processes requests for both HTTP <code>GET</code> and <code>POST</code>

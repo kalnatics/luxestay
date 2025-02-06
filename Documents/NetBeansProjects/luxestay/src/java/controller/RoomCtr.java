@@ -1,88 +1,180 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package controller;
 
+import com.google.gson.Gson;
+import dao.RoomDAO;
+import model.Room;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.sql.SQLException;
+import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-/**
- *
- * @author kallisya
- */
 @WebServlet(name = "RoomCtr", urlPatterns = {"/RoomCtr"})
 public class RoomCtr extends HttpServlet {
+    private final RoomDAO dao;
+    private final Gson gson;
 
-    /**
-     * Processes requests for both HTTP <code>GET</code> and <code>POST</code>
-     * methods.
-     *
-     * @param request servlet request
-     * @param response servlet response
-     * @throws ServletException if a servlet-specific error occurs
-     * @throws IOException if an I/O error occurs
-     */
+    public RoomCtr() {
+        this.dao = new RoomDAO();
+        this.gson = new Gson();
+    }
+
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.setContentType("text/html;charset=UTF-8");
-        try (PrintWriter out = response.getWriter()) {
-            /* TODO output your page here. You may use following sample code. */
-            out.println("<!DOCTYPE html>");
-            out.println("<html>");
-            out.println("<head>");
-            out.println("<title>Servlet RoomCtr</title>");            
-            out.println("</head>");
-            out.println("<body>");
-            out.println("<h1>Servlet RoomCtr at " + request.getContextPath() + "</h1>");
-            out.println("</body>");
-            out.println("</html>");
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        PrintWriter out = response.getWriter();
+        String action = request.getParameter("action");
+
+        try {
+            if (action == null || action.isEmpty() || action.equals("all")) {
+                List<Room> rooms = dao.getAllRooms();
+                out.println(gson.toJson(rooms));
+                return;
+            }
+
+            switch (action) {
+                case "tambah":
+                case "edit":
+                    handleSaveOrUpdate(request, out, action);
+                    break;
+
+                case "get":
+                    handleGet(request, out);
+                    break;
+
+                case "hapus":
+                    handleDelete(request, out);
+                    break;
+
+                default:
+                    sendError(out, "Invalid operation requested");
+            }
+
+        } catch (Exception e) {
+            sendError(out, "Error processing request: " + e.getMessage());
         }
     }
 
-    // <editor-fold defaultstate="collapsed" desc="HttpServlet methods. Click on the + sign on the left to edit the code.">
-    /**
-     * Handles the HTTP <code>GET</code> method.
-     *
-     * @param request servlet request
-     * @param response servlet response
-     * @throws ServletException if a servlet-specific error occurs
-     * @throws IOException if an I/O error occurs
-     */
+    private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
+        try {
+            String idStr = request.getParameter("roomID");
+            String roomTypeIDStr = request.getParameter("roomTypeID");
+            String roomNo = request.getParameter("roomNo");
+            String maxPersonStr = request.getParameter("maxPerson");
+            String status = request.getParameter("status");
+
+            if (roomTypeIDStr == null || roomNo == null || maxPersonStr == null || status == null ||
+                roomTypeIDStr.isEmpty() || roomNo.isEmpty() || maxPersonStr.isEmpty() || status.isEmpty()) {
+                sendError(out, "All fields are required");
+                return;
+            }
+
+            int roomTypeID = Integer.parseInt(roomTypeIDStr);
+            int maxPerson = Integer.parseInt(maxPersonStr);
+            Room room = new Room();
+            room.setRoomNo(roomNo);
+            room.setRoomTypeID(roomTypeID);
+            room.setMaxPerson(maxPerson);
+            room.setStatus(status);
+
+            if (action.equals("edit")) {
+                if (idStr == null || idStr.isEmpty()) {
+                    sendError(out, "Room ID is required for editing");
+                    return;
+                }
+                int roomID = Integer.parseInt(idStr);
+                room.setRoomID(roomID);
+            }
+
+            dao.addOrUpdate(room, action.equals("edit") ? "edit" : "tambah");
+            sendSuccess(out, action.equals("edit") ? "Room updated successfully" : "Room added successfully");
+        } catch (NumberFormatException e) {
+            sendError(out, "Invalid number format");
+        } catch (SQLException e) {
+            sendError(out, "Database error: " + e.getMessage());
+        }
+    }
+
+    private void handleGet(HttpServletRequest request, PrintWriter out) {
+        try {
+            String idStr = request.getParameter("roomID");
+
+            if (idStr == null || idStr.isEmpty()) {
+                sendError(out, "Room ID is required");
+                return;
+            }
+
+            int roomID = Integer.parseInt(idStr);
+            Room room = dao.getById(roomID);
+
+            if (room == null) {
+                sendError(out, "Room not found");
+                return;
+            }
+
+            out.println(gson.toJson(room));
+        } catch (NumberFormatException e) {
+            sendError(out, "Invalid Room ID");
+        } catch (SQLException e) {
+            sendError(out, "Database error: " + e.getMessage());
+        }
+    }
+
+    private void handleDelete(HttpServletRequest request, PrintWriter out) {
+        try {
+            String idStr = request.getParameter("roomID");
+
+            if (idStr == null || idStr.isEmpty()) {
+                sendError(out, "Room ID is required");
+                return;
+            }
+
+            int roomID = Integer.parseInt(idStr);
+            if (dao.delete(roomID)) {
+                sendSuccess(out, "Room deleted successfully");
+            } else {
+                sendError(out, "Failed to delete room");
+            }
+        } catch (NumberFormatException e) {
+            sendError(out, "Invalid Room ID");
+        } catch (SQLException e) {
+            sendError(out, "Database error: " + e.getMessage());
+        }
+    }
+
+    private void sendError(PrintWriter out, String message) {
+        out.println(gson.toJson(new ResponseMessage(false, message)));
+    }
+
+    private void sendSuccess(PrintWriter out, String message) {
+        out.println(gson.toJson(new ResponseMessage(true, message)));
+    }
+
+    private static class ResponseMessage {
+        private final boolean success;
+        private final String message;
+
+        public ResponseMessage(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+    }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         processRequest(request, response);
     }
 
-    /**
-     * Handles the HTTP <code>POST</code> method.
-     *
-     * @param request servlet request
-     * @param response servlet response
-     * @throws ServletException if a servlet-specific error occurs
-     * @throws IOException if an I/O error occurs
-     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         processRequest(request, response);
     }
-
-    /**
-     * Returns a short description of the servlet.
-     *
-     * @return a String containing servlet description
-     */
-    @Override
-    public String getServletInfo() {
-        return "Short description";
-    }// </editor-fold>
-
 }

@@ -1,25 +1,23 @@
 package controller;
 
 import com.google.gson.Gson;
-import dao.UserDAO;
-import model.User;
+import dao.RoomTypeDAO;
+import model.RoomType;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.sql.SQLException;
-import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-@WebServlet(name = "UserCtr", urlPatterns = {"/UserCtr"})
-public class UserCtr extends HttpServlet {
-    private final UserDAO dao;
+@WebServlet(name = "RoomTypeCtr", urlPatterns = {"/RoomTypeCtr"})
+public class RoomTypeCtr extends HttpServlet {
+    private final RoomTypeDAO dao;
     private final Gson gson;
 
-    public UserCtr() {
-        this.dao = new UserDAO();
+    public RoomTypeCtr() {
+        this.dao = new RoomTypeDAO();
         this.gson = new Gson();
     }
 
@@ -31,12 +29,9 @@ public class UserCtr extends HttpServlet {
         PrintWriter out = response.getWriter();
         String action = request.getParameter("action");
 
-        System.out.println("Action received: " + action); // Debugging message
-
         try {
             if (action == null || action.isEmpty()) {
-                List<User> users = dao.getAllUsers();
-                out.println(gson.toJson(users));
+                out.println(gson.toJson(dao.getAllRoomTypes()));
                 return;
             }
 
@@ -45,15 +40,12 @@ public class UserCtr extends HttpServlet {
                 case "edit":
                     handleSaveOrUpdate(request, out, action);
                     break;
-
                 case "get":
                     handleGet(request, out);
                     break;
-
                 case "hapus":
                     handleDelete(request, out);
                     break;
-
                 default:
                     sendError(out, "Invalid operation requested");
             }
@@ -65,81 +57,88 @@ public class UserCtr extends HttpServlet {
 
     private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
         try {
-            String idStr = request.getParameter("id");
-            String username = request.getParameter("username");
-            String password = request.getParameter("password");
-            String email = request.getParameter("email");
+            String idStr = request.getParameter("roomTypeID");
+            String roomType = request.getParameter("roomType");
+            String priceStr = request.getParameter("price");
+            String maxPersonStr = request.getParameter("maxPerson");
 
-            if (username == null || password == null || email == null || username.isEmpty() || password.isEmpty() || email.isEmpty()) {
-                sendError(out, "Semua field wajib diisi");
+            // Cek apakah ada parameter yang kosong
+            if (roomType == null || priceStr == null || maxPersonStr == null) {
+                sendError(out, "All fields are required.");
                 return;
             }
 
-            User user = new User();
-            user.setUsername(username);
-            user.setPassword(password);
-            user.setEmail(email);
+            int price = Integer.parseInt(priceStr);
+            int maxPerson = Integer.parseInt(maxPersonStr);
 
-            if (action.equals("edit")) {
-                if (idStr == null || idStr.isEmpty()) {
-                    sendError(out, "ID wajib untuk proses edit");
-                    return;
+            // Buat objek RoomType
+            RoomType room = new RoomType();
+            room.setRoomType(roomType);
+            room.setPrice(price);
+            room.setMaxPerson(maxPerson);
+
+            if ("edit".equals(action)) {
+                if (idStr != null) {
+                    int roomTypeID = Integer.parseInt(idStr);
+                    room.setRoomTypeID(roomTypeID);
                 }
-                int id = Integer.parseInt(idStr);
-                user.setId(id);
             }
 
-            dao.addOrUpdate(user, action.equals("edit") ? "edit" : "tambah");
-            sendSuccess(out, action.equals("edit") ? "User berhasil diperbarui" : "User berhasil ditambahkan");
-        } catch (NumberFormatException e) {
-            sendError(out, "ID tidak valid");
-        } catch (SQLException e) {
-            sendError(out, "Kesalahan database: " + e.getMessage());
+            // Panggil DAO untuk simpan/ubah
+            boolean success = dao.addOrUpdate(room, action);
+            if (success) {
+                sendSuccess(out, "Room type " + (action.equals("edit") ? "updated" : "added") + " successfully.");
+            } else {
+                sendError(out, "Failed to process the room type.");
+            }
+
+        } catch (Exception e) {
+            sendError(out, "Error processing request: " + e.getMessage());
         }
     }
 
 
+
     private void handleGet(HttpServletRequest request, PrintWriter out) {
         try {
-            String idStr = request.getParameter("id");
+            String idStr = request.getParameter("roomTypeID");
 
             if (idStr == null) {
-                sendError(out, "User ID is required");
+                sendError(out, "Room Type ID is required");
                 return;
             }
 
-            int id = Integer.parseInt(idStr);
-            User user = dao.getById(id);
+            int roomTypeID = Integer.parseInt(idStr);
+            RoomType roomType = dao.getRoomTypeById(roomTypeID);
 
-            if (user == null) {
-                sendError(out, "Record not found");
+            if (roomType == null) {
+                sendError(out, "Room type not found");
                 return;
             }
 
-            out.println(gson.toJson(user));  // Menyaring data pengguna dalam format JSON
-
+            out.println(gson.toJson(roomType));
         } catch (Exception e) {
             sendError(out, "Error retrieving data: " + e.getMessage());
         }
     }
 
-
     private void handleDelete(HttpServletRequest request, PrintWriter out) {
         try {
-            String idStr = request.getParameter("id");
+            String idStr = request.getParameter("roomTypeID");
 
             if (idStr == null) {
-                sendError(out, "User ID is required");
+                sendError(out, "Room Type ID is required");
                 return;
             }
 
-            int id = Integer.parseInt(idStr);
-            if (dao.hapus(id)) {
-                sendSuccess(out, "User hapusd successfully");
-            } else {
-                sendError(out, "Failed to hapus user");
-            }
+            int roomTypeID = Integer.parseInt(idStr);
+            boolean success = dao.deleteRoomType(roomTypeID);
 
+            if (success) {
+                sendSuccess(out, "Room type deleted successfully");
+            } else {
+                sendError(out, "Failed to delete room type");
+            }
         } catch (Exception e) {
             sendError(out, "Error deleting data: " + e.getMessage());
         }

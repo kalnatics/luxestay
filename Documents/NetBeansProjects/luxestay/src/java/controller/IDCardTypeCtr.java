@@ -1,25 +1,26 @@
 package controller;
 
 import com.google.gson.Gson;
-import dao.UserDAO;
-import model.User;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.sql.SQLException;
-import java.util.List;
+import dao.IDCardTypeDAO;
+import model.IDCardType;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.SQLException;
+import java.util.List;
 
-@WebServlet(name = "UserCtr", urlPatterns = {"/UserCtr"})
-public class UserCtr extends HttpServlet {
-    private final UserDAO dao;
+@WebServlet(name = "IDCardTypeCtr", urlPatterns = {"/IDCardTypeCtr"})
+public class IDCardTypeCtr extends HttpServlet {
+    private final IDCardTypeDAO idCardTypeDAO;
     private final Gson gson;
 
-    public UserCtr() {
-        this.dao = new UserDAO();
+    public IDCardTypeCtr() {
+        this.idCardTypeDAO = new IDCardTypeDAO();
         this.gson = new Gson();
     }
 
@@ -31,18 +32,16 @@ public class UserCtr extends HttpServlet {
         PrintWriter out = response.getWriter();
         String action = request.getParameter("action");
 
-        System.out.println("Action received: " + action); // Debugging message
-
         try {
-            if (action == null || action.isEmpty()) {
-                List<User> users = dao.getAllUsers();
-                out.println(gson.toJson(users));
+            if (action == null || action.isEmpty() || "all".equals(action)) {
+                List<IDCardType> idCardTypes = idCardTypeDAO.getAllIDCardTypes();
+                out.println(gson.toJson(idCardTypes));
                 return;
             }
 
             switch (action) {
-                case "tambah":
-                case "edit":
+                case "create":
+                case "update":
                     handleSaveOrUpdate(request, out, action);
                     break;
 
@@ -50,7 +49,7 @@ public class UserCtr extends HttpServlet {
                     handleGet(request, out);
                     break;
 
-                case "hapus":
+                case "delete":
                     handleDelete(request, out);
                     break;
 
@@ -65,79 +64,68 @@ public class UserCtr extends HttpServlet {
 
     private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
         try {
-            String idStr = request.getParameter("id");
-            String username = request.getParameter("username");
-            String password = request.getParameter("password");
-            String email = request.getParameter("email");
+            String idStr = request.getParameter("idCardTypeID");
+            String idCardType = request.getParameter("idCardType");
 
-            if (username == null || password == null || email == null || username.isEmpty() || password.isEmpty() || email.isEmpty()) {
-                sendError(out, "Semua field wajib diisi");
+            if (idCardType == null) {
+                sendError(out, "Type Name is required");
                 return;
             }
 
-            User user = new User();
-            user.setUsername(username);
-            user.setPassword(password);
-            user.setEmail(email);
+            IDCardType idc = new IDCardType();
+            idc.setIdCardType(idCardType);
 
-            if (action.equals("edit")) {
-                if (idStr == null || idStr.isEmpty()) {
-                    sendError(out, "ID wajib untuk proses edit");
-                    return;
-                }
-                int id = Integer.parseInt(idStr);
-                user.setId(id);
+            if (action.equals("update") && idStr != null) {
+                int idCardTypeID = Integer.parseInt(idStr);
+                idc.setIdCardTypeID(idCardTypeID);
             }
 
-            dao.addOrUpdate(user, action.equals("edit") ? "edit" : "tambah");
-            sendSuccess(out, action.equals("edit") ? "User berhasil diperbarui" : "User berhasil ditambahkan");
-        } catch (NumberFormatException e) {
-            sendError(out, "ID tidak valid");
-        } catch (SQLException e) {
-            sendError(out, "Kesalahan database: " + e.getMessage());
+            idCardTypeDAO.addOrUpdate(idc, action.equals("update") ? "edit" : "create");
+            sendSuccess(out, action.equals("update") ? "ID Card Type updated successfully" : "ID Card Type added successfully");
+
+        } catch (Exception e) {
+            sendError(out, "Error processing " + action + " request: " + e.getMessage());
         }
     }
 
-
     private void handleGet(HttpServletRequest request, PrintWriter out) {
         try {
-            String idStr = request.getParameter("id");
+            String idStr = request.getParameter("idCardTypeID");
 
             if (idStr == null) {
-                sendError(out, "User ID is required");
+                sendError(out, "ID Card Type ID is required");
                 return;
             }
 
-            int id = Integer.parseInt(idStr);
-            User user = dao.getById(id);
+            int idCardTypeID = Integer.parseInt(idStr);
+            IDCardType idCardType = idCardTypeDAO.getIDCardTypeById(idCardTypeID);
 
-            if (user == null) {
+            if (idCardType == null) {
                 sendError(out, "Record not found");
                 return;
             }
 
-            out.println(gson.toJson(user));  // Menyaring data pengguna dalam format JSON
+            out.println(gson.toJson(idCardType));
 
         } catch (Exception e) {
             sendError(out, "Error retrieving data: " + e.getMessage());
         }
     }
 
-
     private void handleDelete(HttpServletRequest request, PrintWriter out) {
         try {
-            String idStr = request.getParameter("id");
+            String idStr = request.getParameter("idCardTypeID");
 
             if (idStr == null) {
-                sendError(out, "User ID is required");
+                sendError(out, "ID Card Type ID is required");
                 return;
             }
 
-            int id = Integer.parseInt(idStr);
-            if (dao.hapus(id)) {
-                sendSuccess(out, "User hapusd successfully");
+            int idCardTypeID = Integer.parseInt(idStr);
+            if (idCardTypeDAO.delete(idCardTypeID)) {
+                sendSuccess(out, "ID Card Type deleted successfully");
             } else {
-                sendError(out, "Failed to hapus user");
+                sendError(out, "Failed to delete ID Card Type");
             }
 
         } catch (Exception e) {
