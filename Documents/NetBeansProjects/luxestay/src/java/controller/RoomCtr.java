@@ -32,7 +32,8 @@ public class RoomCtr extends HttpServlet {
         String action = request.getParameter("action");
 
         try {
-            if (action == null || action.isEmpty() || action.equals("all")) {
+            if (action == null || action.isEmpty()) {
+                // Default action: get all rooms
                 List<Room> rooms = dao.getAllRooms();
                 out.println(gson.toJson(rooms));
                 return;
@@ -43,47 +44,42 @@ public class RoomCtr extends HttpServlet {
                 case "edit":
                     handleSaveOrUpdate(request, out, action);
                     break;
-
                 case "get":
                     handleGet(request, out);
                     break;
-
                 case "hapus":
                     handleDelete(request, out);
                     break;
-
                 default:
-                    sendError(out, "Invalid operation requested");
+                    sendError(out, "Invalid action: " + action);
             }
-
         } catch (Exception e) {
-            sendError(out, "Error processing request: " + e.getMessage());
+            sendError(out, "Error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
+
 
     private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
         try {
             String idStr = request.getParameter("roomID");
             String roomTypeIDStr = request.getParameter("roomTypeID");
             String roomNo = request.getParameter("roomNo");
-            String maxPersonStr = request.getParameter("maxPerson");
             String status = request.getParameter("status");
 
-            if (roomTypeIDStr == null || roomNo == null || maxPersonStr == null || status == null ||
-                roomTypeIDStr.isEmpty() || roomNo.isEmpty() || maxPersonStr.isEmpty() || status.isEmpty()) {
+            if (roomTypeIDStr == null || roomNo == null || status == null ||
+                roomTypeIDStr.isEmpty() || roomNo.isEmpty() || status.isEmpty()) {
                 sendError(out, "All fields are required");
                 return;
             }
 
             int roomTypeID = Integer.parseInt(roomTypeIDStr);
-            int maxPerson = Integer.parseInt(maxPersonStr);
             Room room = new Room();
             room.setRoomNo(roomNo);
             room.setRoomTypeID(roomTypeID);
-            room.setMaxPerson(maxPerson);
-            room.setStatus(status);
+            room.setStatus(status.equals("Terisi") ? "1" : "0");
 
-            if (action.equals("edit")) {
+            if ("edit".equals(action)) {
                 if (idStr == null || idStr.isEmpty()) {
                     sendError(out, "Room ID is required for editing");
                     return;
@@ -92,8 +88,13 @@ public class RoomCtr extends HttpServlet {
                 room.setRoomID(roomID);
             }
 
-            dao.addOrUpdate(room, action.equals("edit") ? "edit" : "tambah");
-            sendSuccess(out, action.equals("edit") ? "Room updated successfully" : "Room added successfully");
+            boolean success = dao.addOrUpdate(room, action.equals("edit") ? "edit" : "tambah");
+            if (success) {
+                sendSuccess(out, action.equals("edit") ? "Room updated successfully" : "Room added successfully");
+            } else {
+                sendError(out, "Failed to process the room");
+            }
+
         } catch (NumberFormatException e) {
             sendError(out, "Invalid number format");
         } catch (SQLException e) {

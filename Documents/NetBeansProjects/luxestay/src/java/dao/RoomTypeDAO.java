@@ -11,7 +11,7 @@ public class RoomTypeDAO {
     private final Connection koneksi;
 
     public RoomTypeDAO() {
-         koneksi = Koneksi.getConnection();
+         this.koneksi = Koneksi.getConnection();
     }
 
     public List<RoomType> getAllRoomTypes() throws SQLException {
@@ -32,6 +32,7 @@ public class RoomTypeDAO {
         return roomTypes;
     }
 
+
     public RoomType getRoomTypeById(int roomTypeID) throws SQLException {
         String query = "SELECT * FROM room_type WHERE roomTypeID = ?";
         try (PreparedStatement stmt = koneksi.prepareStatement(query)) {
@@ -50,38 +51,34 @@ public class RoomTypeDAO {
         return null;
     }
 
-    public boolean addOrUpdate(RoomType room, String action) {
-        Connection conn = null;
-        PreparedStatement stmt = null;
-        boolean result = false;
-        try {
-            String query = "";
+    public boolean addOrUpdate(RoomType room, String action) throws SQLException {
+        String query;
+        if ("edit".equals(action)) {
+            query = "UPDATE room_type SET roomType = ?, price = ?, maxPerson = ? WHERE roomTypeID = ?";
+        } else if ("tambah".equals(action)) {
+            query = "INSERT INTO room_type (roomType, price, maxPerson) VALUES (?, ?, ?)";
+        } else {
+            throw new SQLException("Invalid action: " + action);
+        }
+
+        try (PreparedStatement stmt = koneksi.prepareStatement(query)) {
+            stmt.setString(1, room.getRoomType());
+            stmt.setInt(2, room.getPrice());
+            stmt.setInt(3, room.getMaxPerson());
+
             if ("edit".equals(action)) {
-                query = "UPDATE room_type SET roomType = ?, price = ?, maxPerson = ? WHERE roomTypeID = ?";
-                stmt = conn.prepareStatement(query);
-                stmt.setString(1, room.getRoomType());
-                stmt.setInt(2, room.getPrice());
-                stmt.setInt(3, room.getMaxPerson());
                 stmt.setInt(4, room.getRoomTypeID());
-            } else if ("tambah".equals(action)) {
-                query = "INSERT INTO room_type (roomType, price, maxPerson) VALUES (?, ?, ?)";
-                stmt = conn.prepareStatement(query);
-                stmt.setString(1, room.getRoomType());
-                stmt.setInt(2, room.getPrice());
-                stmt.setInt(3, room.getMaxPerson());
             }
 
             int rowsAffected = stmt.executeUpdate();
-            result = rowsAffected > 0; // Jika ada perubahan data, maka sukses
-        } catch (SQLException e) {
-            System.out.println("Error executing query: " + e.getMessage());
+            return rowsAffected > 0;
         }
-        return result;
     }
 
 
 
     public boolean deleteRoomType(int roomTypeID) throws SQLException {
+        // Cek apakah masih digunakan di tabel room
         String checkQuery = "SELECT COUNT(*) FROM room WHERE roomTypeID = ?";
         try (PreparedStatement checkStmt = koneksi.prepareStatement(checkQuery)) {
             checkStmt.setInt(1, roomTypeID);
@@ -91,6 +88,7 @@ public class RoomTypeDAO {
                 }
             }
         }
+
         String deleteQuery = "DELETE FROM room_type WHERE roomTypeID = ?";
         try (PreparedStatement stmt = koneksi.prepareStatement(deleteQuery)) {
             stmt.setInt(1, roomTypeID);

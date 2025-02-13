@@ -53,6 +53,10 @@ public class UserCtr extends HttpServlet {
                 case "hapus":
                     handleDelete(request, out);
                     break;
+                
+                case "login":
+                    handleLogin(request, out);
+                    break;
 
                 default:
                     sendError(out, "Invalid operation requested");
@@ -62,6 +66,29 @@ public class UserCtr extends HttpServlet {
             sendError(out, "Error processing request: " + e.getMessage());
         }
     }
+    
+    private void handleLogin(HttpServletRequest request, PrintWriter out) {
+        try {
+            String email = request.getParameter("email");
+            String password = request.getParameter("password");
+
+            if (email == null || password == null || email.isEmpty() || password.isEmpty()) {
+                sendError(out, "Email dan password wajib diisi");
+                return;
+            }
+
+            User user = dao.getUserByEmail(email);
+            if (user == null || !user.getPassword().equals(password)) { // Pastikan password cocok
+                sendError(out, "Email atau password salah");
+                return;
+            }
+
+            sendSuccess(out, "Login berhasil");
+        } catch (Exception e) {
+            sendError(out, "Kesalahan saat login: " + e.getMessage());
+        }
+    }
+
 
     private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
         try {

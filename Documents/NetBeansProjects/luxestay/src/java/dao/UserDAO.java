@@ -66,6 +66,25 @@ public class UserDAO {
         }
         return null;
     }
+    
+    public User getUserByEmail(String email) throws SQLException {
+        String sql = "SELECT * FROM user WHERE email=?";
+        try (PreparedStatement ps = koneksi.prepareStatement(sql)) {
+            ps.setString(1, email);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    User user = new User();
+                    user.setId(rs.getInt("id"));
+                    user.setUsername(rs.getString("username"));
+                    user.setPassword(rs.getString("password"));
+                    user.setEmail(rs.getString("email"));
+                    return user;
+                }
+            }
+        }
+        return null;
+    }
+
 
     public boolean hapus(int id) throws SQLException {
         String sql = "DELETE FROM user WHERE id=?";

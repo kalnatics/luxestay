@@ -1,20 +1,29 @@
 package model;
 
 public class Room {
-    private int roomID, roomTypeID, maxPerson, price;
-    private String roomNo, status, roomTypeName;
 
-    // Constructor default
-    public Room() {}
+    private Integer roomID;
+    private Integer roomTypeID;
+    private String roomNo;
+    private Integer status;
+    private String roomTypeName;
+    private Integer price;
+    private Integer maxPerson;
+
+    // Constructor kosong
+    public Room() {
+    }
 
     // Constructor lengkap
-    public Room(int roomID, String roomNo, int roomTypeID, String roomTypeName, int maxPerson, String status) {
+    public Room(Integer roomID, String roomNo, Integer roomTypeID, String roomTypeName,
+            Integer status, Integer price, Integer maxPerson) {
         this.roomID = roomID;
         this.roomNo = roomNo;
         this.roomTypeID = roomTypeID;
         this.roomTypeName = roomTypeName;
-        this.maxPerson = maxPerson;
         this.status = status;
+        this.price = price;
+        this.maxPerson = maxPerson;
     }
 
     // Getter dan Setter
@@ -34,14 +43,6 @@ public class Room {
         this.roomTypeID = roomTypeID;
     }
 
-    public int getMaxPerson() {
-        return maxPerson;
-    }
-
-    public void setMaxPerson(int maxPerson) {
-        this.maxPerson = maxPerson;
-    }
-
     public String getRoomNo() {
         return roomNo;
     }
@@ -51,7 +52,7 @@ public class Room {
     }
 
     public String getStatus() {
-        return status;
+        return status != null ? status : "0";  // default value
     }
 
     public void setStatus(String status) {
@@ -65,7 +66,7 @@ public class Room {
     public void setRoomTypeName(String roomTypeName) {
         this.roomTypeName = roomTypeName;
     }
-    
+
     public int getPrice() {
         return price;
     }
@@ -73,4 +74,13 @@ public class Room {
     public void setPrice(int price) {
         this.price = price;
     }
+
+    public int getMaxPerson() {
+        return maxPerson;
+    }
+
+    public void setMaxPerson(int maxPerson) {
+        this.maxPerson = maxPerson;
+    }
+
 }

@@ -3,21 +3,24 @@ package controller;
 import com.google.gson.Gson;
 import dao.RoomTypeDAO;
 import model.RoomType;
-import java.io.IOException;
-import java.io.PrintWriter;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.List;
 
 @WebServlet(name = "RoomTypeCtr", urlPatterns = {"/RoomTypeCtr"})
 public class RoomTypeCtr extends HttpServlet {
-    private final RoomTypeDAO dao;
+    private final RoomTypeDAO roomTypeDAO;
     private final Gson gson;
 
     public RoomTypeCtr() {
-        this.dao = new RoomTypeDAO();
+        this.roomTypeDAO = new RoomTypeDAO();
         this.gson = new Gson();
     }
 
@@ -29,67 +32,28 @@ public class RoomTypeCtr extends HttpServlet {
         PrintWriter out = response.getWriter();
         String action = request.getParameter("action");
 
+        System.out.println("📩 Action received in Servlet: " + action); // Debugging
+
         try {
-            if (action == null || action.isEmpty()) {
-                out.println(gson.toJson(dao.getAllRoomTypes()));
+            if (action == null || action.isEmpty() || "all".equals(action)) {
+                List<RoomType> roomTypes = roomTypeDAO.getAllRoomTypes();
+                out.println(gson.toJson(roomTypes));
                 return;
             }
 
-            switch (action) {
-                case "tambah":
-                case "edit":
-                    handleSaveOrUpdate(request, out, action);
-                    break;
-                case "get":
-                    handleGet(request, out);
-                    break;
-                case "hapus":
-                    handleDelete(request, out);
-                    break;
-                default:
-                    sendError(out, "Invalid operation requested");
-            }
-
-        } catch (Exception e) {
-            sendError(out, "Error processing request: " + e.getMessage());
-        }
-    }
-
-    private void handleSaveOrUpdate(HttpServletRequest request, PrintWriter out, String action) {
-        try {
-            String idStr = request.getParameter("roomTypeID");
-            String roomType = request.getParameter("roomType");
-            String priceStr = request.getParameter("price");
-            String maxPersonStr = request.getParameter("maxPerson");
-
-            // Cek apakah ada parameter yang kosong
-            if (roomType == null || priceStr == null || maxPersonStr == null) {
-                sendError(out, "All fields are required.");
-                return;
-            }
-
-            int price = Integer.parseInt(priceStr);
-            int maxPerson = Integer.parseInt(maxPersonStr);
-
-            // Buat objek RoomType
-            RoomType room = new RoomType();
-            room.setRoomType(roomType);
-            room.setPrice(price);
-            room.setMaxPerson(maxPerson);
-
-            if ("edit".equals(action)) {
-                if (idStr != null) {
-                    int roomTypeID = Integer.parseInt(idStr);
-                    room.setRoomTypeID(roomTypeID);
+            if ("create".equals(action) || "update".equals(action) || "delete".equals(action)) {
+                StringBuilder sb = new StringBuilder();
+                BufferedReader reader = request.getReader();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    sb.append(line);
                 }
-            }
-
-            // Panggil DAO untuk simpan/ubah
-            boolean success = dao.addOrUpdate(room, action);
-            if (success) {
-                sendSuccess(out, "Room type " + (action.equals("edit") ? "updated" : "added") + " successfully.");
+                RoomType roomType = gson.fromJson(sb.toString(), RoomType.class);
+                handleSaveOrUpdateDelete(request, out, action, roomType);
+            } else if ("get".equals(action)) {
+                handleGet(request, out);
             } else {
-                sendError(out, "Failed to process the room type.");
+                sendError(out, "Invalid operation requested");
             }
 
         } catch (Exception e) {
@@ -97,7 +61,38 @@ public class RoomTypeCtr extends HttpServlet {
         }
     }
 
+    private void handleSaveOrUpdateDelete(HttpServletRequest request, PrintWriter out, String action, RoomType roomType) {
+        try {
+            if (action.equals("update") && roomType.getRoomTypeID() == 0) {
+                sendError(out, "Room Type ID is required for update");
+                return;
+            }
 
+            if (action.equals("delete") && roomType.getRoomTypeID() == 0) {
+                sendError(out, "Room Type ID is required for delete");
+                return;
+            }
+
+            if (!action.equals("delete") && (roomType.getRoomType() == null || roomType.getPrice() == 0 || roomType.getMaxPerson() == 0)) {
+                sendError(out, "All fields are required");
+                return;
+            }
+
+            if ("delete".equals(action)) {
+                if (roomTypeDAO.deleteRoomType(roomType.getRoomTypeID())) {
+                    sendSuccess(out, "Room type deleted successfully");
+                } else {
+                    sendError(out, "Failed to delete room type");
+                }
+            } else {
+                roomTypeDAO.addOrUpdate(roomType, "update".equals(action) ? "edit" : "create");
+                sendSuccess(out, "update".equals(action) ? "Room type updated successfully" : "Room type added successfully");
+            }
+
+        } catch (Exception e) {
+            sendError(out, "Error processing " + action + " request: " + e.getMessage());
+        }
+    }
 
     private void handleGet(HttpServletRequest request, PrintWriter out) {
         try {
@@ -109,7 +104,7 @@ public class RoomTypeCtr extends HttpServlet {
             }
 
             int roomTypeID = Integer.parseInt(idStr);
-            RoomType roomType = dao.getRoomTypeById(roomTypeID);
+            RoomType roomType = roomTypeDAO.getRoomTypeById(roomTypeID);
 
             if (roomType == null) {
                 sendError(out, "Room type not found");
@@ -117,30 +112,9 @@ public class RoomTypeCtr extends HttpServlet {
             }
 
             out.println(gson.toJson(roomType));
+
         } catch (Exception e) {
             sendError(out, "Error retrieving data: " + e.getMessage());
-        }
-    }
-
-    private void handleDelete(HttpServletRequest request, PrintWriter out) {
-        try {
-            String idStr = request.getParameter("roomTypeID");
-
-            if (idStr == null) {
-                sendError(out, "Room Type ID is required");
-                return;
-            }
-
-            int roomTypeID = Integer.parseInt(idStr);
-            boolean success = dao.deleteRoomType(roomTypeID);
-
-            if (success) {
-                sendSuccess(out, "Room type deleted successfully");
-            } else {
-                sendError(out, "Failed to delete room type");
-            }
-        } catch (Exception e) {
-            sendError(out, "Error deleting data: " + e.getMessage());
         }
     }
 

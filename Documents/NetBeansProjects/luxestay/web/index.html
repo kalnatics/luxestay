@@ -1,12 +1,44 @@
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Hello, World!</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-      <h1 class="title">Hello World! </h1>
-      <p id="currentTime"></p>
-      <script src="script.js"></script>
-  </body>
-</html>
+<div class="container mt-5">
+    <h2>Login</h2>
+    <form id="loginForm">
+        <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Login</button>
+    </form>
+    <div id="loginMessage" class="mt-3"></div>
+</div>
+
+<script>
+document.getElementById("loginForm").addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    let formData = new FormData();
+    formData.append("action", "login");
+    formData.append("email", document.getElementById("email").value);
+    formData.append("password", document.getElementById("password").value);
+
+    fetch("UserCtr", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        let messageDiv = document.getElementById("loginMessage");
+        if (data.success) {
+            messageDiv.innerHTML = "<div class='alert alert-success'>" + data.message + "</div>";
+            setTimeout(() => {
+                window.location.href = "dashboard.html"; // Ganti dengan halaman setelah login
+            }, 1000);
+        } else {
+            messageDiv.innerHTML = "<div class='alert alert-danger'>" + data.message + "</div>";
+        }
+    })
+    .catch(error => console.error("Error:", error));
+});
+</script>

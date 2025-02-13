@@ -4,94 +4,115 @@ $(document).ready(function () {
     function loadRoomTypes() {
         $.get('/luxestay/RoomTypeCtr', function (data) {
             $('#roomTypeID').empty();
+            $('#roomTypeID').append('<option value="">Select Room Type</option>');
             if (Array.isArray(data)) {
                 data.forEach(type => {
                     $('#roomTypeID').append(`<option value="${type.roomTypeID}">${type.roomType}</option>`);
                 });
-            } else {
-                console.error("Received data is not an array:", data);
             }
         }).fail(function (xhr) {
             console.error("Failed to load room types:", xhr.responseText);
         });
     }
 
-    loadRoomTypes();
-
-    // Initialize DataTable
-    table = $('#roomTable').DataTable({
+    // Initialize DataTable dengan refresh yang lebih baik
+    $(document).ready(function () {
+    let table = $('#roomTable').DataTable({
         ajax: {
             url: '/luxestay/RoomCtr',
             dataSrc: ''
         },
         columns: [
             { data: 'roomNo' },
-            { data: 'roomTypeName' }, // Menggunakan roomTypeName dari tabel room_type
-            { data: 'price' },        // Tambahkan kolom price
-            { data: 'maxPerson' },    // Menggunakan maxPerson dari tabel room_type
-            { data: 'status' },
+            { data: 'roomTypeName' },
+            { 
+                data: 'price',
+                render: function(data) {
+                    return data ? `Rp ${parseInt(data).toLocaleString()}` : '-';
+                }
+            },
+            { data: 'maxPerson' },
+            {
+                data: 'status',
+                render: function (data) {
+                    // Handle null/undefined status
+                    if (data === null || data === undefined) {
+                        return '<span class="badge bg-secondary">Not Set</span>';
+                    }
+                    return parseInt(data) === 1 ? 
+                        '<span class="badge bg-danger">Terisi</span>' : 
+                        '<span class="badge bg-success">Kosong</span>';
+                }
+            },
             {
                 data: null,
                 render: function (data, type, row) {
                     return `
-                        <button class="btn btn-outline-success btn-sm btnEdit" data-id="${row.roomID}">Edit</button>
-                        <button class="btn btn-outline-danger btn-sm btnDelete" data-id="${row.roomID}">Delete</button>`;
+                        <button class="btn btn-outline-success btn-sm btnEdit" data-id="${row.roomID}">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm btnDelete" data-id="${row.roomID}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>`;
                 }
             }
         ]
     });
 
-    // Tombol untuk menambah room
+    // Tambah Room
     $("#btnAddRoom").click(function () {
         loadRoomTypes();
         $("#roomModal").modal('show');
         $("#roomModalLabel").text("Add New Room");
         $("#roomForm")[0].reset();
-        $("#roomForm").data('mode', 'create');
+        $("#roomID").val('');
+        $("#roomForm").data('mode', 'tambah');
     });
 
-    // Submit form tambah/edit room
+    // Submit form
     $("#roomForm").on('submit', function (e) {
         e.preventDefault();
-        const mode = $(this).data('mode');
-        const data = {
-            action: mode,
-            roomID: mode === 'edit' ? $("#roomID").val() : null,
+        
+        const formData = {
+            action: $(this).data('mode'),
+            roomID: $("#roomID").val() || null,
             roomNo: $("#roomNo").val(),
             roomTypeID: $("#roomTypeID").val(),
-            status: $("#status").val() || 'Available'
+            status: $("#status").val() || null
         };
 
-        if (!data.roomNo || !data.roomTypeID) {
-            alert("Please fill all required fields!");
+        // Validasi
+        if (!formData.roomNo || !formData.roomTypeID) {
+            alert("Please fill required fields!");
             return;
         }
 
         $.ajax({
             url: "/luxestay/RoomCtr",
             method: "POST",
-            data: JSON.stringify(data),
-            contentType: "application/json",
+            data: formData,
             success: function (response) {
                 if (response.success) {
                     $("#roomModal").modal('hide');
                     table.ajax.reload();
                     alert(response.message);
                 } else {
-                    alert(response.message);
+                    alert(response.message || "Operation failed");
                 }
             },
-            error: function () {
-                alert("Error processing request");
+            error: function (xhr) {
+                alert("Error: " + (xhr.responseJSON?.message || "Operation failed"));
             }
         });
     });
-
-    // Klik tombol edit
+    
+    // Edit button handler
     $('#roomTable').on('click', '.btnEdit', function () {
         const roomID = $(this).data('id');
-        $.get('/luxestay/RoomCtr', { action: 'get', roomID: roomID }, function (data) {
-            loadRoomTypes();
+        $.get('/luxestay/RoomCtr', { 
+            action: 'get', 
+            roomID: roomID 
+        }, function (data) {
             $("#roomModalLabel").text("Edit Room");
             $("#roomID").val(data.roomID);
             $("#roomNo").val(data.roomNo);
@@ -102,23 +123,33 @@ $(document).ready(function () {
         });
     });
 
-    // Klik tombol delete
+    // Delete button handler
     $('#roomTable').on('click', '.btnDelete', function () {
         const roomID = $(this).data('id');
         if (confirm("Are you sure you want to delete this room?")) {
-            $.post("/luxestay/RoomCtr", {
-                action: 'delete',
-                roomID: roomID
-            }, function (response) {
-                if (response.success) {
-                    table.ajax.reload();
-                    alert(response.message);
-                } else {
-                    alert(response.message);
+            $.ajax({
+                url: "/luxestay/RoomCtr",
+                method: "POST",
+                data: {
+                    action: 'hapus',
+                    roomID: roomID
+                },
+                dataType: 'json',
+                success: function (response) {
+                    if (response.success) {
+                        table.ajax.reload();
+                        alert(response.message);
+                    } else {
+                        alert(response.message || "Delete failed");
+                    }
+                },
+                error: function (xhr) {
+                    alert("Error: " + (xhr.responseJSON?.message || "Delete failed"));
                 }
             });
         }
     });
 
+    // Load initial data
     loadRoomTypes();
 });
